@@ -1,0 +1,91 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome</h1>
+    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+
+    <!-- Şehirler için dropdown -->
+    <select id="cityDropdown">
+        <option value="0">Şehir Seçiniz</option>
+        @if (ViewBag.Iller != null)
+        {
+            foreach (var il in ViewBag.Iller)
+            {
+                <option value="@il.id">@il.sehiradi</option>
+            }
+        }
+    </select>
+
+    <!-- İlçeler için dropdown -->
+    <select id="districtDropdown" disabled>
+        <option value="0">İlçe Seçiniz</option>
+    </select>
+
+    <!-- Adres için input -->
+    <input type="text" id="address" placeholder="Adres Giriniz" disabled />
+
+    <!-- Adresi göstermek için buton -->
+    <button onclick="showAddressOnMap()" disabled>Adresi Göster</button>
+
+    <!-- Harita gösterimi için div -->
+    <div id="map" style="height:400px;width:100%;margin-top:20px;"></div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+<script>
+    $(document).ready(function () {
+        // Şehir seçildiğinde ilçeleri getir
+        $("#cityDropdown").change(function () {
+            var cityId = $(this).val();
+            
+            // Eğer geçerli bir şehir seçildiyse
+            if (cityId != 0) {
+                // ilçeleri getir
+                $.get("/Home/GetIlceler?sehirId=" + cityId, function (data) {
+                    $("#districtDropdown").empty().append('<option value="0">İlçe Seçiniz</option>');
+                    $.each(data, function (index, value) {
+                        $("#districtDropdown").append('<option value="' + value.id + '">' + value.ilceadi + '</option>');
+                    });
+                    $("#districtDropdown").prop("disabled", false);
+                    $("#address").prop("disabled", false);
+                    $("button").prop("disabled", false);
+                });
+            } else {
+                // Eğer geçerli bir şehir seçilmemişse
+                $("#districtDropdown").empty().append('<option value="0">İlçe Seçiniz</option>').prop("disabled", true);
+                $("#address").prop("disabled", true);
+                $("button").prop("disabled", true);
+            }
+        });
+    });
+
+    var map = L.map('map').setView([39.920770, 32.854110], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+    }).addTo(map);
+
+    function showAddressOnMap() {
+        var city = $("#cityDropdown option:selected").text();
+        var district = $("#districtDropdown option:selected").text();
+        var address = $("#address").val();
+        var fullAddress = city + ", " + district + ", " + address;
+
+        $.get(`https://nominatim.openstreetmap.org/search?format=json&q=${fullAddress}`, function (data) {
+            if (data.length > 0) {
+                var loc = data[0];
+                map.setView([loc.lat, loc.lon], 13);
+                L.marker([loc.lat, loc.lon]).addTo(map)
+                    .bindPopup(fullAddress)
+                    .openPopup();
+            } else {
+                alert('Adres bulunamadı!');
+            }
+        });
+    }
+</script>
